@@ -3,9 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Music Collection</title>
+
+     <!-- Vue og Axios -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
 </head>
 <body>
-    
-</body>
+    <div id="app">
+        <h1>Music Collection</h1>
+        <ul>
+            <li v-for="album in albums" :key="album.id">
+                {{ album.title }} by {{ album.artist }}
+            </li>
+        </ul>
+    </div>
+
+    <script src="index.js"></script>
+</body> 
 </html>
