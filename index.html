@@ -1,25 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Collection</title>
-
-     <!-- Vue og Axios -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-
+    <meta name="description" content="En lille samling af musik, vi holder af.">
+    <title>frontmusic — vores musiksamling</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23f5f0e8'/%3E%3Ctext x='7' y='29' font-size='30' fill='%2384454d'%3E%E2%99%A1%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="index.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js" defer></script>
+    <script src="index.js" defer></script>
 </head>
 <body>
-    <div id="app">
-        <h1>Music Collection</h1>
-        <ul>
-            <li v-for="album in albums" :key="album.id">
-                {{ album.title }} by {{ album.artist }}
-            </li>
-        </ul>
-    </div>
+    <div id="app" v-cloak>
+        <header class="page-header">
+            <a class="brand" href="#" @click="showOnlyFavorites = false">frontmusic<span aria-hidden="true">♡</span></a>
+            <nav aria-label="Hovedmenu">
+                <button :class="{ active: !showOnlyFavorites }" :aria-current="!showOnlyFavorites ? 'page' : null" @click="showOnlyFavorites = false">Samlingen</button>
+                <button :class="{ active: showOnlyFavorites }" :aria-current="showOnlyFavorites ? 'page' : null" @click="showOnlyFavorites = true">Favoritter <span class="nav-count">{{ favoriteCount }}</span></button>
+            </nav>
+        </header>
 
-    <script src="index.js"></script>
-</body> 
+        <main>
+            <section class="intro" aria-labelledby="page-title">
+                <div>
+                    <p class="small-label">Vores lille musikhjørne</p>
+                    <h1 id="page-title">Musik, vi holder af.</h1>
+                    <p class="intro-description">Her samler vi musikken, vi gerne vil høre igen.<br>Find et nummer, du kender. Eller et, du kommer til at holde af.</p>
+                </div>
+                <p class="handwritten" aria-hidden="true">lige én sang mere<span>♡</span></p>
+            </section>
+
+            <section id="collection" aria-labelledby="collection-title">
+                <div class="section-heading">
+                    <h2 id="collection-title">{{ showOnlyFavorites ? 'Dine favoritter' : 'Samlingen' }}</h2>
+                    <p class="result-count" role="status">{{ loading ? 'Henter musikken…' : visibleAlbums.length + (visibleAlbums.length === 1 ? ' nummer' : ' numre') }}</p>
+                </div>
+
+                <!-- Felterne sendes som title og artist til REST API'et. -->
+                <form class="search-form" @submit.prevent="searchAlbums" role="search" aria-label="Søg efter musik">
+                    <label for="title">Titel<input id="title" v-model="title" type="search" placeholder="Hvad vil du høre?" :disabled="loading"></label>
+                    <label for="artist">Kunstner<input id="artist" v-model="artist" type="search" placeholder="Hvem leder du efter?" :disabled="loading"></label>
+                    <button class="primary-button" type="submit" :disabled="loading">Find musik</button>
+                </form>
+                <div class="collection-tools">
+                    <div class="artist-filters" aria-label="Filtrér efter kunstner">
+                        <button :class="{ active: !artist }" @click="filterArtist('')" :disabled="loading">Alle</button>
+                        <button v-for="name in artists" :key="name" :class="{ active: artist === name }" @click="filterArtist(name)" :disabled="loading">{{ name }}</button>
+                    </div>
+                    <label class="sort-label" for="sort">Sortér
+                        <select id="sort" v-model="sortBy">
+                            <option value="original">Som de blev tilføjet</option>
+                            <option value="title">Titel A–Å</option>
+                            <option value="artist">Kunstner A–Å</option>
+                            <option value="newest">Nyeste først</option>
+                            <option value="duration">Korteste først</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div v-if="error" class="message" role="alert">
+                    <h3>Vi kunne ikke hente musikken lige nu.</h3>
+                    <p>Tjek forbindelsen, og prøv igen.</p>
+                    <button class="secondary-button" @click="searchAlbums">Prøv igen</button>
+                </div>
+                <p v-else-if="loading" class="loading-state" role="status">Henter musikken…</p>
+                <div v-else-if="visibleAlbums.length === 0" class="message">
+                    <h3>{{ showOnlyFavorites ? 'Dine favoritter får plads her.' : 'Der var ikke noget, der passede.' }}</h3>
+                    <p>{{ showOnlyFavorites ? 'Tryk på hjertet ved et nummer for at gemme det. Har du søgt, kan du også prøve at rydde søgningen.' : 'Prøv en anden titel eller kunstner.' }}</p>
+                    <button class="secondary-button" @click="resetSearch">Tilbage til samlingen</button>
+                </div>
+
+                <ul v-else class="record-grid">
+                    <li v-for="album in visibleAlbums" :key="albumKey(album)" class="record-card">
+                        <!-- Egne, enkle omslag. Alle oplysninger kommer fra API'et. -->
+                        <button class="cover-button" @click="openDetails(album)" :aria-label="'Vis detaljer om ' + album.title">
+                            <span class="record-cover" :class="coverClass(album)" aria-hidden="true">
+                                <span class="cover-artist">{{ album.artist }}</span>
+                                <span class="cover-title">{{ album.title }}</span>
+                                <span class="cover-year">{{ album.publicationYear }}</span>
+                                <span class="small-record"><i></i></span>
+                            </span>
+                        </button>
+                        <div class="record-info">
+                            <div><button class="record-title" @click="openDetails(album)">{{ album.title }}</button><p class="record-artist">{{ album.artist }}</p></div>
+                            <button class="favorite-button" :class="{ saved: isFavorite(album) }" @click="toggleFavorite(album)" :aria-label="(isFavorite(album) ? 'Fjern favorit: ' : 'Gem favorit: ') + album.title" :aria-pressed="isFavorite(album)">{{ isFavorite(album) ? '♥' : '♡' }}</button>
+                        </div>
+                        <p class="record-duration">{{ album.publicationYear }} <span>·</span> {{ formatDuration(album.duration) }}</p>
+                    </li>
+                </ul>
+                <p v-if="favorites.length > 0" class="favorites-note">{{ favoriteNote }}</p>
+            </section>
+        </main>
+
+        <footer class="page-footer"><span>En lille samling, samlet med kærlighed.</span><span>{{ allAlbums.length }} numre <span class="footer-heart">♡</span> {{ totalMinutes }} minutters musik</span></footer>
+
+        <dialog ref="details" @close="selectedAlbum = null" aria-labelledby="dialog-title">
+            <button class="dialog-close" @click="$refs.details.close()" aria-label="Luk detaljer">×</button>
+            <div v-if="selectedAlbum" class="dialog-layout">
+                <div class="record-cover dialog-cover" :class="coverClass(selectedAlbum)" aria-hidden="true"><span class="cover-artist">{{ selectedAlbum.artist }}</span><span class="cover-title">{{ selectedAlbum.title }}</span><span class="cover-year">{{ selectedAlbum.publicationYear }}</span><span class="small-record"><i></i></span></div>
+                <div class="dialog-info"><p class="small-label">Fra samlingen</p><h2 id="dialog-title">{{ selectedAlbum.title }}</h2><p class="dialog-artist">{{ selectedAlbum.artist }}</p>
+                    <dl><div><dt>Udgivelsesår</dt><dd>{{ selectedAlbum.publicationYear }}</dd></div><div><dt>Varighed</dt><dd>{{ formatDuration(selectedAlbum.duration) }}</dd></div></dl>
+                    <button class="primary-button" @click="toggleFavorite(selectedAlbum)">{{ isFavorite(selectedAlbum) ? '♥ Fjern fra favoritter' : '♡ Gem som favorit' }}</button>
+                    <p class="favorites-note">{{ favoriteNote }}</p>
+                </div>
+            </div>
+        </dialog>
+    </div>
+</body>
 </html>

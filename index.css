@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display:ital@0;1&family=Caveat:wght@400;500&display=swap');
+
+/* Farver og skrifttyper, som bruges på hele siden. */
+:root {
+    color-scheme: light;
+    --paper: #f7f4ed;
+    --ink: #39352e;
+    --muted: #78756b;
+    --line: #ded9ce;
+    --wine: #83494f;
+    --serif: 'DM Serif Display', Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 1000px; background: var(--paper); color: var(--ink); font: 14px/1.6 'DM Sans', sans-serif; }
+[v-cloak] { display: none; }
+button, input, select { font: inherit; }
+button { color: inherit; cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--wine); outline-offset: 4px; }
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, p { margin: 0; }
+#app { max-width: 1160px; margin: auto; padding: 0 46px; }
+
+/* Enkel topmenu. */
+.page-header { height: 100px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.brand { font: italic 30px var(--serif); letter-spacing: -.8px; }
+.brand > span { display: inline-block; margin-left: 9px; color: var(--wine); font: 32px 'Caveat', cursive; transform: rotate(-12deg); }
+.page-header nav { display: flex; gap: 30px; align-items: center; }
+.page-header nav button { padding: 9px 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--muted); font-size: 13px; }
+.page-header nav button.active { color: var(--wine); border-bottom-color: var(--wine); }
+.nav-count { font-size: 10px; margin-left: 4px; }
+
+/* En kort introduktion, så musikken stadig er i centrum. */
+.intro { display: flex; justify-content: space-between; align-items: center; padding: 55px 0 49px; }
+.small-label { font-size: 12px; color: var(--wine); }
+h1 { font: 400 52px/1.15 var(--serif); letter-spacing: -1.2px; margin: 11px 0 18px; }
+.intro-description { color: var(--muted); font-size: 14px; line-height: 1.85; }
+.handwritten { font: 400 30px 'Caveat', cursive; color: var(--wine); transform: rotate(-7deg); margin-right: 47px; }
+.handwritten > span { display: block; text-align: center; font-size: 36px; margin-top: 4px; }
+
+/* Søgning og sortering. */
+#collection { border-top: 1px solid var(--line); padding-top: 25px; min-height: 465px; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 23px; }
+.section-heading h2 { font: 400 26px var(--serif); }
+.result-count { color: var(--muted); font-size: 11px; }
+.search-form { display: flex; align-items: end; gap: 16px; }
+.search-form label { display: flex; flex: 1; flex-direction: column; gap: 7px; font-size: 11px; color: var(--muted); }
+.search-form input { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 4px; background: #fdfbf7; color: var(--ink); font-size: 13px; }
+.search-form input::placeholder { color: #8b877f; }
+.primary-button { padding: 13px 24px; border: 1px solid var(--wine); border-radius: 4px; background: var(--wine); color: #fffaf5; font-size: 12px; white-space: nowrap; }
+.primary-button:hover { background: #703d43; }
+.collection-tools { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 18px 0 29px; }
+.artist-filters { display: flex; gap: 7px; flex-wrap: wrap; }
+.artist-filters button { border: 1px solid transparent; border-radius: 3px; padding: 4px 9px; background: transparent; color: var(--muted); font-size: 11px; }
+.artist-filters button:first-child { margin-left: -9px; }
+.artist-filters button.active { border-color: #d9c5c4; color: var(--wine); background: #eee3df; }
+.artist-filters button:hover { color: var(--wine); }
+.sort-label { flex-shrink: 0; color: var(--muted); font-size: 10px; }
+.sort-label select { padding: 4px; border: 0; background: transparent; color: var(--ink); font-size: 11px; cursor: pointer; }
+
+/* Hvert nummer har sit eget enkle omslag. */
+.record-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; list-style: none; margin: 0; padding: 0; }
+.record-card { min-width: 0; }
+.cover-button { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; }
+.record-cover { display: block; position: relative; aspect-ratio: 1; border: 1px solid #0000000c; border-radius: 2px; overflow: hidden; box-shadow: 0 3px 7px #4d382c0a; transition: transform .2s; }
+.cover-button:hover .record-cover { transform: translateY(-4px); }
+.cover-0 { background: #cbd8d1; color: #3c5349; }
+.cover-1 { background: #dfc7bd; color: #744e43; }
+.cover-2 { background: #dedcb7; color: #5d623c; }
+.cover-3 { background: #d7cbd9; color: #624e68; }
+.cover-artist { position: absolute; top: 22px; left: 22px; right: 22px; font-size: 11px; }
+.cover-title { position: absolute; top: 57px; left: 22px; right: 22px; font: 400 30px/1.1 var(--serif); overflow-wrap: anywhere; }
+.cover-year { position: absolute; bottom: 20px; left: 22px; font-size: 10px; }
+.small-record { position: absolute; bottom: 17px; right: 18px; width: 43px; height: 43px; border-radius: 50%; border: 1px solid currentColor; display: grid; place-items: center; opacity: .65; }
+.small-record::before { content: ''; position: absolute; inset: 5px; border: 1px solid currentColor; border-radius: 50%; opacity: .5; }
+.small-record i { width: 9px; height: 9px; border: 1px solid currentColor; border-radius: 50%; }
+.record-info { display: flex; justify-content: space-between; align-items: start; gap: 8px; margin-top: 14px; }
+.record-title { border: 0; padding: 0; background: transparent; font-size: 13px; font-weight: 600; text-align: left; }
+.record-title:hover { color: var(--wine); }
+.record-artist { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.favorite-button { background: transparent; border: 0; color: var(--muted); font: 26px/1 Georgia, serif; padding: 1px 2px 5px 6px; }
+.favorite-button:hover, .favorite-button.saved { color: var(--wine); }
+.record-duration { font-size: 10px; color: var(--muted); margin-top: 11px; }
+.record-duration > span { margin: 0 5px; }
+.favorites-note { color: var(--muted); font-size: 10px; margin-top: 25px; }
+
+/* Beskeder og detaljevindue. */
+.message { text-align: center; padding: 40px 20px; border: 1px dashed var(--line); }
+.message h3 { font: 400 24px var(--serif); }
+.message p { font-size: 12px; color: var(--muted); margin: 9px 0 20px; }
+.secondary-button { border: 1px solid var(--line); padding: 9px 15px; background: #fdfbf7; border-radius: 3px; font-size: 12px; }
+.loading-state { padding: 60px 20px; color: var(--muted); font-size: 13px; text-align: center; }
+.page-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 49px; padding: 22px 0 30px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+.page-footer > span:first-child { font: italic 16px var(--serif); }
+.footer-heart { color: var(--wine); font-size: 18px; margin: 0 9px; }
+dialog { width: 690px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); box-shadow: 0 20px 80px #372b2726; }
+dialog::backdrop { background: #39352e66; }
+.dialog-close { position: absolute; top: 12px; right: 15px; z-index: 2; border: 0; background: transparent; font: 27px/1 Georgia, serif; color: var(--muted); }
+.dialog-layout { display: grid; grid-template-columns: 1fr 1fr; }
+.dialog-cover { aspect-ratio: auto; min-height: 340px; box-shadow: none; border: 0; border-radius: 0; }
+.dialog-cover .cover-title { font-size: 40px; top: 78px; }
+.dialog-info { padding: 44px 28px 29px; }
+.dialog-info h2 { font: 400 32px/1.1 var(--serif); margin: 16px 0 10px; }
+.dialog-artist { color: var(--muted); font-size: 14px; }
+.dialog-info dl { display: flex; gap: 30px; margin: 26px 0; }
+.dialog-info dt { color: var(--muted); font-size: 10px; }
+.dialog-info dd { font-size: 17px; margin: 5px 0 0; }
+.dialog-info .primary-button { padding: 11px 16px; font-size: 11px; }
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .record-cover { transition: none; }
+}
