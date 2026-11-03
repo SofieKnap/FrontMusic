@@ -13,7 +13,21 @@ Vue.createApp({
             selectedAlbum: null,
             loading: true,
             error: false,
-            favoriteNote: "Favoritter gemmes i denne browser."
+            favoriteNote: "Favoritter gemmes i denne browser.",
+            // Login gælder, indtil brugeren logger ud eller genindlæser siden.
+            token: "",
+            username: "",
+            loginUsername: "",
+            loginPassword: "",
+            loginError: "",
+            loggingIn: false,
+            saving: false,
+            formError: "",
+            actionError: "",
+            notice: "",
+            editingAlbum: null,
+            deletingAlbum: null,
+            albumForm: { title: "", artist: "", duration: 180, publicationYear: new Date().getFullYear() }
         };
     },
 
@@ -92,11 +106,156 @@ Vue.createApp({
             } else {
                 this.favorites.push(key);
             }
+            this.saveFavorites();
+        },
+        saveFavorites() {
             try {
                 localStorage.setItem("frontmusic.favorites", JSON.stringify(this.favorites));
             } catch {
                 this.favoriteNote = "Browseren kunne ikke gemme favoritterne. De virker indtil siden lukkes.";
             }
+        },
+        openLogin() {
+            this.loginError = "";
+            this.loginPassword = "";
+            this.$refs.loginDialog.showModal();
+        },
+        async login() {
+            this.loggingIn = true;
+            this.loginError = "";
+            try {
+                const response = await axios.post(apiUrl.replace("/Collection", "/Auth/login"), {
+                    username: this.loginUsername,
+                    password: this.loginPassword
+                }, { timeout: 15000 });
+                if (typeof response.data.token !== "string" || !response.data.token) {
+                    throw new Error("Login returnerede ikke et token");
+                }
+                this.token = response.data.token;
+                this.username = this.loginUsername;
+                this.actionError = "";
+                this.notice = "Du er logget ind.";
+                this.$refs.loginDialog.close();
+            } catch (error) {
+                this.loginError = error.response?.status === 401
+                    ? "Brugernavn eller adgangskode er forkert."
+                    : "Vi kunne ikke logge dig ind lige nu. Prøv igen om lidt.";
+            } finally {
+                this.loggingIn = false;
+                this.loginPassword = "";
+            }
+        },
+        logout() {
+            this.token = "";
+            this.username = "";
+            this.loginPassword = "";
+            this.notice = "Du er logget ud.";
+            this.actionError = "";
+            this.$refs.albumDialog.close();
+            this.$refs.deleteDialog.close();
+        },
+        openCreate() {
+            if (!this.token) return;
+            this.editingAlbum = null;
+            this.formError = "";
+            this.albumForm = { title: "", artist: "", duration: 180, publicationYear: new Date().getFullYear() };
+            this.$refs.albumDialog.showModal();
+        },
+        openEdit(album) {
+            if (!this.token) return;
+            this.editingAlbum = album;
+            this.formError = "";
+            // En kopi gør, at Annuller ikke ændrer nummeret i listen.
+            this.albumForm = { ...album };
+            this.$refs.albumDialog.showModal();
+        },
+        openDelete(album) {
+            if (!this.token) return;
+            this.deletingAlbum = album;
+            this.formError = "";
+            this.$refs.deleteDialog.showModal();
+        },
+        albumUrl(album) {
+            return apiUrl + "/" + encodeURIComponent(album.title) + "/" + encodeURIComponent(album.artist);
+        },
+        requestOptions() {
+            // Tokenet sendes med til backend, der kontrollerer login og rolle.
+            return { headers: { Authorization: "Bearer " + this.token }, timeout: 15000 };
+        },
+        async saveAlbum() {
+            if (!this.token || this.saving) return;
+            this.formError = "";
+            if (!this.albumForm.title.trim() || !this.albumForm.artist.trim()
+                || !Number.isInteger(this.albumForm.duration) || this.albumForm.duration < 1
+                || this.albumForm.duration > 2147483647
+                || !Number.isInteger(this.albumForm.publicationYear)
+                || this.albumForm.publicationYear < 1 || this.albumForm.publicationYear > 9999) {
+                this.formError = "Udfyld titel og kunstner, en positiv varighed og et år fra 1 til 9999.";
+                return;
+            }
+            this.saving = true;
+            this.actionError = "";
+            this.notice = "";
+            try {
+                const album = { ...this.albumForm, title: this.albumForm.title.trim(), artist: this.albumForm.artist.trim() };
+                if (this.editingAlbum) {
+                    await axios.put(this.albumUrl(this.editingAlbum), album, this.requestOptions());
+                    // Bevar favoritten, hvis titel, kunstner eller år bliver ændret.
+                    const oldKey = this.albumKey(this.editingAlbum);
+                    this.favorites = this.favorites.map(key => key === oldKey ? this.albumKey(album) : key);
+                    this.saveFavorites();
+                    this.notice = "Nummeret er opdateret.";
+                } else {
+                    await axios.post(apiUrl, album, this.requestOptions());
+                    this.notice = "Nummeret er tilføjet.";
+                }
+                this.$refs.albumDialog.close();
+                await this.refreshCollection();
+            } catch (error) {
+                this.formError = this.handleActionError(error);
+            } finally {
+                this.saving = false;
+            }
+        },
+        async deleteAlbum() {
+            if (!this.token || !this.deletingAlbum || this.saving) return;
+            this.saving = true;
+            this.formError = "";
+            this.actionError = "";
+            this.notice = "";
+            try {
+                await axios.delete(this.albumUrl(this.deletingAlbum), this.requestOptions());
+                const key = this.albumKey(this.deletingAlbum);
+                this.favorites = this.favorites.filter(favorite => favorite !== key);
+                this.saveFavorites();
+                this.$refs.deleteDialog.close();
+                this.notice = "Nummeret er slettet.";
+                await this.refreshCollection();
+            } catch (error) {
+                this.formError = this.handleActionError(error);
+            } finally {
+                this.saving = false;
+            }
+        },
+        async refreshCollection() {
+            this.title = "";
+            this.artist = "";
+            this.showOnlyFavorites = false;
+            await this.searchAlbums();
+        },
+        handleActionError(error) {
+            const status = error.response?.status;
+            if (status === 401) {
+                this.logout();
+                this.notice = "";
+                this.actionError = "Dit login er udløbet. Log ind igen.";
+                return this.actionError;
+            }
+            if (status === 403) return "Du har ikke adgang til denne handling.";
+            if (status === 404) return "Nummeret findes ikke længere. Genindlæs samlingen.";
+            if (status === 409) return "Et nummer med den titel og kunstner findes allerede.";
+            if (status === 400) return "Kontrollér oplysningerne. Alle felter skal være udfyldt med gyldige værdier.";
+            return "Handlingen kunne ikke gennemføres. Prøv igen om lidt.";
         },
         formatDuration(seconds) {
             const minutes = Math.floor(seconds / 60);

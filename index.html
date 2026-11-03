@@ -15,10 +15,16 @@
     <div id="app" v-cloak>
         <header class="page-header">
             <a class="brand" href="#" @click="showOnlyFavorites = false">frontmusic<span aria-hidden="true">♡</span></a>
+            <div class="header-actions">
             <nav aria-label="Hovedmenu">
                 <button :class="{ active: !showOnlyFavorites }" :aria-current="!showOnlyFavorites ? 'page' : null" @click="showOnlyFavorites = false">Samlingen</button>
                 <button :class="{ active: showOnlyFavorites }" :aria-current="showOnlyFavorites ? 'page' : null" @click="showOnlyFavorites = true">Favoritter <span class="nav-count">{{ favoriteCount }}</span></button>
             </nav>
+            <div class="account-controls">
+                <template v-if="token"><span class="account-name">{{ username }}</span><button class="account-button" @click="logout" :disabled="saving">Log ud</button></template>
+                <button v-else class="account-button" @click="openLogin">Log ind</button>
+            </div>
+            </div>
         </header>
 
         <main>
@@ -34,8 +40,14 @@
             <section id="collection" aria-labelledby="collection-title">
                 <div class="section-heading">
                     <h2 id="collection-title">{{ showOnlyFavorites ? 'Dine favoritter' : 'Samlingen' }}</h2>
+                    <div class="collection-heading-actions">
+                    <button v-if="token" class="primary-button add-button" @click="openCreate" :disabled="saving">+ Tilføj nummer</button>
                     <p class="result-count" role="status">{{ loading ? 'Henter musikken…' : visibleAlbums.length + (visibleAlbums.length === 1 ? ' nummer' : ' numre') }}</p>
+                    </div>
                 </div>
+
+                <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+                <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
 
                 <!-- Felterne sendes som title og artist til REST API'et. -->
                 <form class="search-form" @submit.prevent="searchAlbums" role="search" aria-label="Søg efter musik">
@@ -87,6 +99,10 @@
                             <button class="favorite-button" :class="{ saved: isFavorite(album) }" @click="toggleFavorite(album)" :aria-label="(isFavorite(album) ? 'Fjern favorit: ' : 'Gem favorit: ') + album.title" :aria-pressed="isFavorite(album)">{{ isFavorite(album) ? '♥' : '♡' }}</button>
                         </div>
                         <p class="record-duration">{{ album.publicationYear }} <span>·</span> {{ formatDuration(album.duration) }}</p>
+                        <div v-if="token" class="record-actions">
+                            <button @click="openEdit(album)" :disabled="saving" :aria-label="'Opdater ' + album.title">Opdater</button>
+                            <button class="delete-link" @click="openDelete(album)" :disabled="saving" :aria-label="'Slet ' + album.title">Slet</button>
+                        </div>
                     </li>
                 </ul>
                 <p v-if="favorites.length > 0" class="favorites-note">{{ favoriteNote }}</p>
@@ -94,6 +110,45 @@
         </main>
 
         <footer class="page-footer"><span>En lille samling, samlet med kærlighed.</span><span>{{ allAlbums.length }} numre <span class="footer-heart">♡</span> {{ totalMinutes }} minutters musik</span></footer>
+
+        <!-- Login bruger API'ets token. Adgangskoden gemmes ikke i browseren. -->
+        <dialog ref="loginDialog" class="form-dialog" aria-labelledby="login-heading" @close="loginPassword = ''; loginError = ''">
+            <button class="dialog-close" @click="$refs.loginDialog.close()" aria-label="Luk login">×</button>
+            <h2 id="login-heading">Velkommen tilbage.</h2>
+            <p class="form-intro">Log ind for at tilføje og passe på samlingen.</p>
+            <form class="dialog-form" @submit.prevent="login">
+                <label for="login-username">Brugernavn<input id="login-username" v-model.trim="loginUsername" autocomplete="username" required :disabled="loggingIn"></label>
+                <label for="login-password">Adgangskode<input id="login-password" v-model="loginPassword" type="password" autocomplete="current-password" required :disabled="loggingIn"></label>
+                <p v-if="loginError" class="action-error" role="alert">{{ loginError }}</p>
+                <button class="primary-button" type="submit" :disabled="loggingIn">{{ loggingIn ? 'Logger ind…' : 'Log ind' }}</button>
+            </form>
+        </dialog>
+
+        <dialog ref="albumDialog" class="form-dialog" @cancel="saving && $event.preventDefault()" aria-labelledby="album-form-heading">
+            <button class="dialog-close" @click="$refs.albumDialog.close()" :disabled="saving" aria-label="Luk musikformular">×</button>
+            <h2 id="album-form-heading">{{ editingAlbum ? 'Opdater nummer' : 'Tilføj et nummer' }}</h2>
+            <p class="form-intro">Et nummer mere til samlingen.</p>
+            <form class="dialog-form" @submit.prevent="saveAlbum">
+                <label for="album-title">Titel<input id="album-title" v-model.trim="albumForm.title" required :disabled="saving"></label>
+                <label for="album-artist">Kunstner<input id="album-artist" v-model.trim="albumForm.artist" required :disabled="saving"></label>
+                <div class="form-row">
+                    <label for="album-duration">Varighed i sekunder<input id="album-duration" v-model.number="albumForm.duration" type="number" min="1" max="2147483647" step="1" required :disabled="saving"></label>
+                    <label for="album-year">Udgivelsesår<input id="album-year" v-model.number="albumForm.publicationYear" type="number" min="1" max="9999" step="1" required :disabled="saving"></label>
+                </div>
+                <p v-if="formError" class="action-error" role="alert">{{ formError }}</p>
+                <div class="form-buttons"><button class="secondary-button" type="button" @click="$refs.albumDialog.close()" :disabled="saving">Annuller</button><button class="primary-button" type="submit" :disabled="saving">{{ saving ? 'Gemmer…' : (editingAlbum ? 'Gem ændringer' : 'Tilføj nummer') }}</button></div>
+            </form>
+        </dialog>
+
+        <dialog ref="deleteDialog" class="form-dialog" @cancel="saving && $event.preventDefault()" aria-labelledby="delete-heading">
+            <button class="dialog-close" @click="$refs.deleteDialog.close()" :disabled="saving" aria-label="Luk sletning">×</button>
+            <template v-if="deletingAlbum">
+                <h2 id="delete-heading">Slet nummeret?</h2>
+                <p class="form-intro">Vil du fjerne <strong>{{ deletingAlbum.title }}</strong> af {{ deletingAlbum.artist }} fra samlingen?</p>
+                <p v-if="formError" class="action-error" role="alert">{{ formError }}</p>
+                <div class="form-buttons"><button class="secondary-button" @click="$refs.deleteDialog.close()" :disabled="saving">Behold nummeret</button><button class="primary-button" @click="deleteAlbum" :disabled="saving">{{ saving ? 'Sletter…' : 'Slet nummer' }}</button></div>
+            </template>
+        </dialog>
 
         <dialog ref="details" @close="selectedAlbum = null" aria-labelledby="dialog-title">
             <button class="dialog-close" @click="$refs.details.close()" aria-label="Luk detaljer">×</button>
