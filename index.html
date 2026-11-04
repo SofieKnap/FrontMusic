@@ -14,7 +14,7 @@
 <body>
     <div id="app" v-cloak>
         <header class="page-header">
-            <a class="brand" href="#" @click="showOnlyFavorites = false">frontmusic<span aria-hidden="true">♡</span></a>
+            <a class="brand" href="#" @click="showOnlyFavorites = false">Music Universe<span aria-hidden="true">♡</span></a>
             <div class="header-actions">
             <nav aria-label="Hovedmenu">
                 <button :class="{ active: !showOnlyFavorites }" :aria-current="!showOnlyFavorites ? 'page' : null" @click="showOnlyFavorites = false">Samlingen</button>
@@ -34,7 +34,7 @@
                     <h1 id="page-title">Musik, vi holder af.</h1>
                     <p class="intro-description">Her samler vi musikken, vi gerne vil høre igen.<br>Find et nummer, du kender. Eller et, du kommer til at holde af.</p>
                 </div>
-                <p class="handwritten" aria-hidden="true">lige én sang mere<span>♡</span></p>
+                <p class="handwritten" aria-hidden="true">Lige én sang mere<span>♡</span></p>
             </section>
 
             <section id="collection" aria-labelledby="collection-title">
