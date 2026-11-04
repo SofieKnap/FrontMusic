@@ -17,6 +17,7 @@ function createApp() {
         delete: async (url, options) => { calls.push({ method: 'delete', url, options }); return { data: {} }; }
     };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8'), {
+        window: {},
         Vue: { createApp(options) { vueOptions = options; return { mount() {} }; } },
         axios,
         localStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
@@ -30,7 +31,7 @@ function createApp() {
     app.$nextTick = callback => callback();
     return { app, axios, calls, stored };
 }
-const album = () => ({ title: 'Test & sang', artist: 'Testkunstner', duration: 180, publicationYear: 2026 });
+const album = () => ({ id: 17, title: 'Test & sang', artist: 'Testkunstner', duration: 180, publicationYear: 2026 });
 
 test('Login sender oplysninger til login-endpointet og gemmer token i hukommelsen', async () => {
     const { app, calls, stored } = createApp();
@@ -130,8 +131,9 @@ test('Redigering bruger en kopi, og opdatering bevarer favorit ved ændret titel
     assert.equal(original.title, 'Test & sang');
     await app.saveAlbum();
     assert.equal(calls[0].method, 'put');
-    assert.ok(calls[0].url.endsWith('/Test%20%26%20sang/Testkunstner'));
+    assert.ok(calls[0].url.endsWith('/17'));
     assert.equal(calls[0].body.title, 'Ny titel');
+    assert.equal(calls[0].body.id, undefined);
     assert.equal(calls[0].options.headers.Authorization, 'Bearer test-token');
     assert.equal(app.favorites[0], app.albumKey({ ...original, title: 'Ny titel' }));
 });
@@ -146,7 +148,7 @@ test('Slet-dialogen sender først DELETE, når sletningen bekræftes', async () 
     assert.equal(app.$refs.deleteDialog.open, true);
     await app.deleteAlbum();
     assert.equal(calls[0].method, 'delete');
-    assert.ok(calls[0].url.endsWith('/Test%20%26%20sang/Testkunstner'));
+    assert.ok(calls[0].url.endsWith('/17'));
     assert.equal(calls[0].options.headers.Authorization, 'Bearer test-token');
     assert.equal(app.favorites.length, 0);
     assert.equal(app.notice, 'Nummeret er slettet.');
@@ -189,4 +191,31 @@ test('Manglende Admin-adgang viser fejl og fjerner ikke musik eller favoritter',
     assert.equal(app.favorites.length, 1);
     assert.equal(app.$refs.deleteDialog.open, true);
     assert.equal(app.token, 'test-token');
+});
+
+test('Gamle favoritter overføres til id, når samlingen hentes', async () => {
+    const { app, axios } = createApp();
+    const record = album();
+    app.favorites = [JSON.stringify([record.title, record.artist, record.publicationYear])];
+    axios.get = async () => ({ data: [record] });
+    await app.searchAlbums();
+    assert.equal(app.favorites[0], '17');
+    assert.equal(app.isFavorite({ ...record, title: 'Ny titel' }), true);
+});
+
+test('En ældre API-udgave uden gyldige id’er afvises', async () => {
+    const { app, axios } = createApp();
+    axios.get = async () => ({ data: [{ title: 'Sang', artist: 'Kunstner' }] });
+    await app.searchAlbums();
+    assert.equal(app.error, true);
+    assert.equal(app.albums.length, 0);
+});
+
+test('To numre med samme titel har adskilte favoritter via id', () => {
+    const { app } = createApp();
+    const first = album();
+    const second = { ...first, id: 42 };
+    app.toggleFavorite(first);
+    assert.equal(app.isFavorite(first), true);
+    assert.equal(app.isFavorite(second), false);
 });

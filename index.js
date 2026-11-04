@@ -1,4 +1,5 @@
-const apiUrl = "https://restmusicproject-g5aee9cthpghdcd9.swedencentral-01.azurewebsites.net/api/Collection";
+// Test kan vælge en lokal API-adresse. Hjemmesiden bruger ellers Azure.
+const apiUrl = window.FRONTMUSIC_API_URL || "https://restmusicproject-g5aee9cthpghdcd9.swedencentral-01.azurewebsites.net/api/Collection";
 
 Vue.createApp({
     data() {
@@ -71,9 +72,20 @@ Vue.createApp({
                     params: { title: this.title.trim(), artist: this.artist.trim() },
                     timeout: 15000
                 });
+                // Hvert nummer skal have sit eget positive id fra backend.
+                const ids = response.data.map(album => album.id);
+                if (!ids.every(id => Number.isInteger(id) && id > 0) || new Set(ids).size !== ids.length) {
+                    throw new Error("API'et skal returnere unikke id'er til musiknumrene.");
+                }
                 this.albums = response.data;
                 if (!this.title.trim() && !this.artist.trim()) {
                     this.allAlbums = response.data;
+                    // Bevar favoritter fra den tidligere udgave, der brugte titel/kunstner.
+                    this.favorites = this.favorites.map(key => {
+                        const album = this.allAlbums.find(item => JSON.stringify([item.title, item.artist, item.publicationYear]) === key);
+                        return album ? String(album.id) : key;
+                    });
+                    this.saveFavorites();
                 }
             } catch (error) {
                 this.error = true;
@@ -93,8 +105,8 @@ Vue.createApp({
             this.searchAlbums();
         },
         albumKey(album) {
-            // API'et har ikke et unikt id, så vi bruger nummerets oplysninger som nøgle.
-            return JSON.stringify([album.title, album.artist, album.publicationYear]);
+            // Samme nøgle bruges også efter ændring af titel eller kunstner.
+            return String(album.id);
         },
         isFavorite(album) {
             return this.favorites.includes(this.albumKey(album));
@@ -176,7 +188,10 @@ Vue.createApp({
             this.$refs.deleteDialog.showModal();
         },
         albumUrl(album) {
-            return apiUrl + "/" + encodeURIComponent(album.title) + "/" + encodeURIComponent(album.artist);
+            if (!Number.isInteger(album.id) || album.id <= 0) {
+                throw new Error("Nummeret mangler et gyldigt id.");
+            }
+            return apiUrl + "/" + album.id;
         },
         requestOptions() {
             // Tokenet sendes med til backend, der kontrollerer login og rolle.
@@ -197,13 +212,16 @@ Vue.createApp({
             this.actionError = "";
             this.notice = "";
             try {
-                const album = { ...this.albumForm, title: this.albumForm.title.trim(), artist: this.albumForm.artist.trim() };
+                // Id kommer fra backend og skal ikke udfyldes eller ændres i formularen.
+                const album = {
+                    title: this.albumForm.title.trim(),
+                    artist: this.albumForm.artist.trim(),
+                    duration: this.albumForm.duration,
+                    publicationYear: this.albumForm.publicationYear
+                };
                 if (this.editingAlbum) {
                     await axios.put(this.albumUrl(this.editingAlbum), album, this.requestOptions());
-                    // Bevar favoritten, hvis titel, kunstner eller år bliver ændret.
-                    const oldKey = this.albumKey(this.editingAlbum);
-                    this.favorites = this.favorites.map(key => key === oldKey ? this.albumKey(album) : key);
-                    this.saveFavorites();
+                    // Favoritten beholder samme id, selv om oplysningerne ændres.
                     this.notice = "Nummeret er opdateret.";
                 } else {
                     await axios.post(apiUrl, album, this.requestOptions());

@@ -15,7 +15,7 @@ Frontend sender Bearer-token med POST, PUT og DELETE. Backend skal selv kontroll
 
 ## Test
 
-Kør frontendens 14 unittests uden at ændre Azure-data:
+Kør frontendens 17 unittests uden at ændre Azure-data:
 
 ```powershell
 node --test tests/admin.test.cjs
@@ -24,3 +24,9 @@ node --test tests/admin.test.cjs
 De bruger et test-API i hukommelsen og kontrollerer login, logout, de sendte data, token-header, validering og fejltilstande. De kontrollerer ikke serverens JWT-opsætning.
 
 Browserens Selenium-tests ligger i den separate MusicTest-løsning.
+
+## Musiknumrenes id
+
+Backend bestemmer id ved oprettelse. Frontend bruger det til PUT og DELETE og til favoritter; brugeren skal aldrig udfylde det. En titelændring beholder samme id og favorit.
+
+Publicér backend med id-adresserne, før den nye index.js uploades. De nye adresser er GET/PUT/DELETE `/api/Collection/{id}`. Liste og søgning er fortsat GET `/api/Collection?title=...&artist=...`. Gamle lokale favoritter baseret på titel/kunstner overføres til id ved indlæsning af hele samlingen.
